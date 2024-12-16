@@ -118,6 +118,37 @@ def visualize_correct_and_misclassified(X_test, y_true, y_pred, class_names, num
     plt.suptitle('Misclassified Images', fontsize=16)
     plt.show()
 
+import os
+import numpy as np
+
+# Preprocess images
+def load_images_from_directory(directory_path, class_names):
+    """
+    Load images from the specified directory and preprocess them.
+    
+    Args:
+        directory_path (str): Path to the directory containing class subfolders.
+        class_names (list): List of emotion class names.
+
+    Returns:
+        images (numpy array): Preprocessed images as numpy arrays.
+        labels (list): Corresponding labels for the images.
+    """
+    images = []
+    labels = []
+    for class_idx, class_name in enumerate(class_names):
+        class_folder = os.path.join(directory_path, class_name)
+        for img_file in os.listdir(class_folder):
+            img_path = os.path.join(class_folder, img_file)
+            try:
+                image = preprocess_image(img_path)  # Use the preprocess_image function
+                images.append(image)
+                labels.append(class_idx)  # Assign label based on folder name
+            except Exception as e:
+                print(f"Error processing image {img_path}: {e}")
+    return np.array(images), labels
+
+
 if __name__ == "__main__":
     class_names = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
     model = load_emotion_model('emotion_cnn_model_v2.h5')
@@ -128,6 +159,20 @@ if __name__ == "__main__":
     # print("Predicted Emotion:", class_names[emotion_label])
     
     print("Model loader and visualization script ready.")
-    plot_classification_report()
-    plot_confusion_matrix()
-    visualize_correct_and_misclassified()
+
+    # Load train and test datasets
+    class_names = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+    train_dir = 'archive/train'
+    test_dir = 'archive/test'
+
+    X_train, y_train = load_images_from_directory(train_dir, class_names)
+    X_test, y_true = load_images_from_directory(test_dir, class_names)
+
+    # Generate predictions using the loaded model (suppress verbose output)
+    y_pred = [np.argmax(model.predict(np.expand_dims(image, axis=0) / 255.0, verbose=0)) for image in X_test]
+
+    # Plot and visualize results
+    plot_classification_report(y_true, y_pred, class_names)
+    plot_confusion_matrix(y_true, y_pred, class_names)
+    visualize_correct_and_misclassified(X_test, y_true, y_pred, class_names)
+
