@@ -32,7 +32,9 @@ The model is built using a **Convolutional Neural Network (CNN)** and the user c
 ---
 
 ## **Usage**
+visit:https://emotiontracer-gcnunrfu2dm9ybualqdthn.streamlit.app/
 
+### OR
 1. **Run the Streamlit App**
    ```bash
    streamlit run streamlit_app.py
