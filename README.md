@@ -106,6 +106,7 @@ These are examples of images where the model misclassified the emotion **Angry**
 
 - The confusion matrix shows that **Angry** is frequently confused with **Surprise** and **Happy**, suggesting overlap in visual cues for these emotions.
 - Despite these misclassifications, the model performs well for most images.
+- In defence of poor accuracy i can say proudly say I myself would have made the same mistakes.
 
 ---
 
