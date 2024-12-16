@@ -1,73 +1,130 @@
-import tensorflow as tf
 import numpy as np
-import cv2  # OpenCV for image processing
+import matplotlib.pyplot as plt
+import seaborn as sns
+import tensorflow as tf
+from tensorflow.keras.models import load_model # type: ignore
+from sklearn.metrics import confusion_matrix, classification_report
+from PIL import Image
 
-# Load the pre-trained model
-model_path = 'emotion_cnn_model_v2.h5'  # Update this if your model file has a different name
-model = tf.keras.models.load_model(model_path)
-
-# Emotion labels corresponding to the class indices
-emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+def load_emotion_model(model_path='emotion_cnn_model_v2.h5'):
+    """
+    Load the pre-trained CNN model from the specified path.
+    
+    Args:
+        model_path (str): Path to the model file.
+    
+    Returns:
+        model: Loaded Keras model.
+    """
+    model = load_model(model_path)
+    print("Model loaded successfully from", model_path)
+    return model
 
 def preprocess_image(image_path):
     """
-    Preprocesses the image to match the model's expected input.
+    Load and preprocess an image to the required grayscale format.
     
     Args:
-        image_path (str): Path to the image to be processed.
+        image_path (str): Path to the input image.
     
     Returns:
-        np.array: Preprocessed image ready for prediction.
+        image (numpy array): Preprocessed grayscale image of size (48, 48, 1).
     """
-    # Load the image in grayscale mode (since the model was trained on grayscale images)
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    
-    if image is None:
-        raise ValueError(f"Image not found at path: {image_path}")
-    
-    # Resize the image to 48x48 (since the model was trained on 48x48 images)
-    image = cv2.resize(image, (48, 48))
-    
-    # Normalize pixel values to [0, 1] range
-    image = image / 255.0
-    
-    # Reshape the image to (1, 48, 48, 1) to match the input shape of the model
-    image = np.reshape(image, (1, 48, 48, 1))
-    
-    return image
+    image = Image.open(image_path).convert('L')  # Convert image to grayscale
+    image = image.resize((48, 48))  # Resize to 48x48
+    image_array = np.array(image, dtype='float32')  # Convert to numpy array
+    image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension (48, 48, 1)
+    return image_array
 
-def predict_emotion(image_path):
+def predict_emotion(model, image):
     """
-    Predicts the emotion from the input image using the pre-trained model.
+    Predict the emotion for a given image using the loaded model.
     
     Args:
-        image_path (str): Path to the image file.
+        model: Trained Keras model.
+        image (numpy array): Preprocessed grayscale image of size (48, 48, 1).
     
     Returns:
-        str: The predicted emotion label.
+        prediction (str): Predicted emotion label.
     """
-    try:
-        # Preprocess the image
-        processed_image = preprocess_image(image_path)
-        
-        # Make a prediction using the model
-        predictions = model.predict(processed_image)
-        
-        # Get the index of the emotion with the highest probability
-        predicted_index = np.argmax(predictions)
-        
-        # Get the corresponding emotion label
-        predicted_emotion = emotion_labels[predicted_index]
-        
-        print(f"Predicted Emotion: {predicted_emotion}")
-        return predicted_emotion
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+    image = np.expand_dims(image, axis=0)  # Add batch dimension
+    image = image / 255.0  # Normalize pixel values
+    predictions = model.predict(image)
+    predicted_emotion = np.argmax(predictions)
+    return predicted_emotion, predictions
+
+def plot_confusion_matrix(y_true, y_pred, class_names):
+    """
+    Plot and display a confusion matrix.
+    
+    Args:
+        y_true (list): True labels.
+        y_pred (list): Predicted labels.
+        class_names (list): List of emotion class names.
+    """
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.title('Confusion Matrix')
+    plt.show()
+
+def plot_classification_report(y_true, y_pred, class_names):
+    """
+    Display the classification report with precision, recall, and F1-score for each class.
+    
+    Args:
+        y_true (list): True labels.
+        y_pred (list): Predicted labels.
+        class_names (list): List of emotion class names.
+    """
+    report = classification_report(y_true, y_pred, target_names=class_names)
+    print("Classification Report:\n")
+    print(report)
+
+def visualize_correct_and_misclassified(X_test, y_true, y_pred, class_names, num_images=10):
+    """
+    Display a grid of correctly and misclassified images.
+    
+    Args:
+        X_test (numpy array): Test images.
+        y_true (list): True labels.
+        y_pred (list): Predicted labels.
+        class_names (list): List of emotion class names.
+        num_images (int): Number of correct and misclassified images to display.
+    """
+    correct = np.where(np.array(y_true) == np.array(y_pred))[0]
+    misclassified = np.where(np.array(y_true) != np.array(y_pred))[0]
+    
+    print(f"Number of Correctly Classified Images: {len(correct)}")
+    print(f"Number of Misclassified Images: {len(misclassified)}")
+    
+    plt.figure(figsize=(20, 10))
+    for i, idx in enumerate(correct[:num_images]):
+        plt.subplot(2, num_images // 2, i + 1)
+        plt.imshow(X_test[idx].squeeze(), cmap='gray')
+        plt.title(f"True: {class_names[y_true[idx]]}\nPred: {class_names[y_pred[idx]]}", color="green")
+        plt.axis('off')
+    plt.suptitle('Correctly Classified Images', fontsize=16)
+    plt.show()
+    
+    plt.figure(figsize=(20, 10))
+    for i, idx in enumerate(misclassified[:num_images]):
+        plt.subplot(2, num_images // 2, i + 1)
+        plt.imshow(X_test[idx].squeeze(), cmap='gray')
+        plt.title(f"True: {class_names[y_true[idx]]}\nPred: {class_names[y_pred[idx]]}", color="red")
+        plt.axis('off')
+    plt.suptitle('Misclassified Images', fontsize=16)
+    plt.show()
 
 if __name__ == "__main__":
-    # Prompt the user to input the path to the image file
-    image_path = input("Enter the path to the image file: ")
+    class_names = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+    model = load_emotion_model('emotion_cnn_model_v2.h5')
     
-    # Predict the emotion from the image
-    predict_emotion(image_path)
+    # Example usage of the new preprocess_image function
+    # image = preprocess_image('path/to/your/image.jpg')
+    # emotion_label, predictions = predict_emotion(model, image)
+    # print("Predicted Emotion:", class_names[emotion_label])
+    
+    print("Model loader and visualization script ready.")
