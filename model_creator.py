@@ -2,12 +2,9 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, GlobalAveragePooling2D
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
-# Enable mixed precision for Apple Silicon optimization
-tf.keras.mixed_precision.set_global_policy('mixed_float16')
 
 # Paths to training and testing datasets
 train_dir = 'archive/train'  # Replace with your training data path
@@ -15,8 +12,8 @@ test_dir = 'archive/test'    # Replace with your testing data path
 
 # Hyperparameters
 img_width, img_height = 48, 48  # Standard for emotion recognition
-batch_size = 16  # Reduced for more frequent updates
-epochs = 100  # Allow EarlyStopping to control the total epochs
+batch_size = 32
+epochs = 100  # Increased epochs for better training
 
 # Data Augmentation for training set
 datagen_train = ImageDataGenerator(
@@ -25,8 +22,8 @@ datagen_train = ImageDataGenerator(
     width_shift_range=0.2,
     height_shift_range=0.2,
     shear_range=0.2,
-    zoom_range=0.3,
-    brightness_range=[0.8, 1.2],
+    zoom_range=0.3,  # Increased zoom range
+    brightness_range=[0.8, 1.2],  # Added brightness variation
     horizontal_flip=True,
     fill_mode='nearest'
 )
@@ -53,11 +50,11 @@ test_generator = datagen_test.flow_from_directory(
 
 # Build the CNN model
 model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(img_width, img_height, 1), kernel_regularizer=tf.keras.regularizers.l2(0.01)),
-    BatchNormalization(),
+    Conv2D(32, (3, 3), activation='relu', input_shape=(img_width, img_height, 1)),
+    BatchNormalization(),  # Added Batch Normalization
     MaxPooling2D(pool_size=(2, 2)),
     
-    Conv2D(64, (3, 3), activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),
+    Conv2D(64, (3, 3), activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),  # L2 regularization
     BatchNormalization(),
     MaxPooling2D(pool_size=(2, 2)),
     
@@ -65,28 +62,25 @@ model = Sequential([
     BatchNormalization(),
     MaxPooling2D(pool_size=(2, 2)),
     
-    Conv2D(256, (3, 3), activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),
-    BatchNormalization(),
-    MaxPooling2D(pool_size=(2, 2)),
+    Flatten(),
+    Dropout(0.5),  # Dropout to prevent overfitting
     
-    GlobalAveragePooling2D(),
-    Dropout(0.5),
-    
-    Dense(256, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),
-    Dropout(0.5),
+    Dense(256, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),  # Increased layer size, added L2
+    Dropout(0.5),  # Increased Dropout to 0.5
     
     Dense(7, activation='softmax')  # 7 classes for each emotion
 ])
 
-# Compile the model
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+# Compile the model with learning rate scheduler
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+model.compile(optimizer=optimizer,
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
 # Model summary
 model.summary()
 
-# Callbacks to improve training stability and performance
+# Callbacks for early stopping and learning rate reduction
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-5)
 

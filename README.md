@@ -89,7 +89,7 @@ Install the following packages:
 ## **Results**
 
 ### **Test Accuracy**
-The model achieved a **Test Accuracy: 39.83%**.
+The model achieved a **Test Accuracy: 51.10%**.
 
 ### **Confusion Matrix**
 Below is the confusion matrix showcasing the model's performance:
